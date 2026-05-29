@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "httpyac": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "949c5bf1d332e9bc9ee1ce1d0c3ea420b4e324a0d89e1d7fba335ea4887e851c"
+    }
+  }
+}
