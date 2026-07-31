@@ -34,6 +34,14 @@ A good implementation plan anticipates problems before they occur. This workflow
 │  5. Create Plan Directory                                       │
 │  6. Generate plan.md, findings.md, feedbacks.md                  │
 └─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     REVIEW & EXECUTE PHASE                       │
+│  7. Present Plan for User Review                                │
+│  8. Await User Confirmation                                     │
+│  9. Proceed to Plan Execution (plan-execution skill)            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -326,6 +334,11 @@ After receiving user answers:
 
 ## Phase 5: Create Plan Directory
 
+Determine the appropriate plan directory location based on current directory structure:
+
+- **If `client/` directory exists**: Use `client/plan/` as the base directory
+- **Otherwise**: Use `plan/` in the current working directory
+
 Follow the directory structure requirements:
 
 ```
@@ -337,10 +350,14 @@ plan-name-example/
 
 ### Directory Creation Instructions
 
-1. Create the plan directory with naming convention: `[purpose]-[component]-[version]`
-2. Create `plan.md` with the mandatory template structure
-3. Create `findings.md` with discovery findings and user answers
-4. Create `feedbacks.md` as an empty markdown file
+1. **Determine plan directory location**:
+   - Check if `client/` directory exists in current working directory
+   - If `client/` exists: Create plan in `client/plan/[purpose]-[component]-[version]/`
+   - If `client/` does not exist: Create plan in `plan/[purpose]-[component]-[version]/`
+2. Create the plan directory with naming convention: `[purpose]-[component]-[version]`
+3. Create `plan.md` with the mandatory template structure
+4. Create `findings.md` with discovery findings and user answers
+5. Create `feedbacks.md` as an empty markdown file
 
 ---
 
@@ -391,6 +408,77 @@ Create as empty file - AI must NOT modify this file.
 
 ---
 
+## Phase 7: Review & Execute
+
+After creating all plan files, present the plan to the user for review and facilitate execution.
+
+### Step 1: Present Plan Summary
+
+Present a concise summary of the created plan:
+
+```
+Implementation plan created successfully!
+
+📁 Location: [plan-directory-path]
+📋 Plan: [plan-name]
+🎯 Goal: [plan goal from front matter]
+📊 Status: Planned
+
+Files created:
+├── plan.md        ([X] phases, [Y] tasks)
+├── findings.md    ([Z] edge cases documented)
+└── feedbacks.md   (empty - for customer feedback)
+```
+
+### Step 2: Request User Review
+
+Ask the user to review the plan before proceeding:
+
+```
+Please review the implementation plan:
+
+1. Open [plan-directory-path]/plan.md to review the implementation steps
+2. Check [plan-directory-path]/findings.md for edge case analysis and user clarifications
+
+Would you like to:
+- ✅ Proceed with execution
+- ✏️ Request modifications to the plan
+- ❌ Cancel plan execution
+```
+
+Use the `ask_followup_question` tool with these options:
+- **Proceed with execution**: Start the plan-execution skill
+- **Request modifications**: Ask what changes are needed
+- **Cancel**: End the workflow
+
+### Step 3: Execute Plan (Upon User Confirmation)
+
+When the user confirms to proceed:
+
+1. **Invoke the plan-execution skill** with the created plan directory
+2. **Pass the plan directory path** as input to the execution skill
+3. **The plan-execution skill will**:
+   - Load and parse the plan directory
+   - Read findings.md for context
+   - Check feedbacks.md for customer input
+   - Create todo lists from plan phases
+   - Execute tasks phase by phase
+   - Update progress automatically
+
+### Execution Handoff
+
+To initiate plan execution, use:
+
+```
+/execute-plan [plan-directory-name]
+```
+
+Where `[plan-directory-name]` is the directory name created in Phase 5 (e.g., `feature-auth-module-1`).
+
+The plan-execution skill will handle all task execution, progress tracking, and status updates automatically.
+
+---
+
 ## File Responsibilities
 
 | File           | Purpose                                                                           | AI Can Modify |
@@ -415,7 +503,9 @@ Create as empty file - AI must NOT modify this file.
 
 ## Output Directory Specifications
 
-- Save implementation plan directories in `/plan/` directory
+- Save implementation plan directories based on current directory context:
+  - **If `client/` directory exists**: Save in `client/plan/` directory
+  - **Otherwise**: Save in `plan/` directory in current working directory
 - Use naming convention: `[purpose]-[component]-[version]`
 - Purpose prefixes: `upgrade|refactor|feature|data|infrastructure|process|architecture|design`
 - Example: `feature-auth-module-1`, `upgrade-system-command-4`

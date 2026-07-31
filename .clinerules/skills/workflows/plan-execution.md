@@ -7,7 +7,7 @@ description: 'Execute implementation plans by parsing plan directories and manag
 
 ## Primary Directive
 
-Your goal is to execute implementation plans by loading plan directories from the `/plan/` directory, parsing the plan.md structure, reading findings.md for context, checking feedbacks.md for customer input, creating dynamic todo lists, executing tasks phase by phase in auto-execution mode, and updating progress automatically. All execution must follow the plan's phase architecture with sequential progression and parallel task execution within phases.
+Your goal is to execute implementation plans by loading plan directories from the appropriate plan directory (checking `client/plan/` first, then `plan/`), parsing the plan.md structure, reading findings.md for context, checking feedbacks.md for customer input, creating dynamic todo lists, executing tasks phase by phase in auto-execution mode, and updating progress automatically. All execution must follow the plan's phase architecture with sequential progression and parallel task execution within phases.
 
 ## Execution Context
 
@@ -26,7 +26,12 @@ This skill is designed for AI-to-AI communication and automated processing. All 
 
 ## Plan Directory Specification
 
-Implementation plans must be located in `/plan/` directory using directory-based structure:
+Implementation plans are located using the following logic:
+
+- **If `client/` directory exists**: Plans are in `client/plan/` directory
+- **Otherwise**: Plans are in `plan/` directory in current working directory
+
+Directory-based structure:
 
 ```
 [purpose]-[component]-[version]/
@@ -52,7 +57,10 @@ Implementation plans must be located in `/plan/` directory using directory-based
 ### Phase 1: Load and Parse Plan Directory
 
 1. **Locate Plan Directory**
-   - Check `/plan/` directory for available plan directories
+   - Determine plan directory location:
+     - Check if `client/` directory exists in current working directory
+     - If `client/` exists: Look for plans in `client/plan/` directory
+     - If `client/` does not exist: Look for plans in `plan/` directory
    - Use provided plan directory name or list available plans
    - Validate directory exists and contains required files (plan.md, findings.md, feedbacks.md)
 
@@ -276,7 +284,7 @@ Generate execution report containing:
 
 ## Dependencies
 
-- Requires `/plan/` directory exists
+- Requires plan directory exists (either `client/plan/` or `plan/` based on directory structure)
 - Requires valid implementation plan directories with plan.md, findings.md, feedbacks.md
 - Requires file system write access to modify plan.md and findings.md
 
