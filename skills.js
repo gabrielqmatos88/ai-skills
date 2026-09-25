@@ -190,7 +190,15 @@ async function downloadSkill(skill, repositoryTree, tempRoot, log) {
   return destinationRoot;
 }
 
-async function installSkill(skill, downloadedPath, harness, cwd, log) {
+async function installSkill(
+  skill,
+  downloadedPath,
+  harness,
+  cwd,
+  log,
+  confirm,
+  isCancel,
+) {
   const realCwd = await fs.realpath(cwd);
   const harnessRoot = path.join(cwd, harness);
   try {
@@ -223,12 +231,24 @@ async function installSkill(skill, downloadedPath, harness, cwd, log) {
   }
 
   const destination = path.join(cwd, harness, 'skills', skill.name);
+  let destinationExists = false;
   try {
     await fs.lstat(destination);
-    log.warn(`Preserved existing ${destination}; not overwriting it.`);
-    return false;
+    destinationExists = true;
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
+  }
+
+  if (destinationExists) {
+    const shouldOverwrite = await confirm({
+      message: `Overwrite existing ${destination} with the repository version?`,
+      initialValue: false,
+    });
+    if (isCancel(shouldOverwrite) || !shouldOverwrite) {
+      log.warn(`Preserved existing ${destination}; not overwriting it.`);
+      return false;
+    }
+    await fs.rm(destination, { recursive: true, force: true });
   }
 
   await fs.mkdir(path.dirname(destination), { recursive: true });
@@ -238,7 +258,7 @@ async function installSkill(skill, downloadedPath, harness, cwd, log) {
 
 async function main() {
   const prompts = await import('@clack/prompts');
-  const { cancel, intro, isCancel, log, multiselect, outro, spinner } = prompts;
+  const { cancel, confirm, intro, isCancel, log, multiselect, outro, spinner } = prompts;
   const args = process.argv.slice(2);
   const configMode = args.includes('--config');
   const unknownArgs = args.filter((arg) => arg !== '--config');
@@ -333,7 +353,17 @@ async function main() {
         const downloadedPath = downloadedSkills.get(skill.name);
         if (!downloadedPath) continue;
         try {
-          if (await installSkill(skill, downloadedPath, harness, process.cwd(), log)) {
+          if (
+            await installSkill(
+              skill,
+              downloadedPath,
+              harness,
+              process.cwd(),
+              log,
+              confirm,
+              isCancel,
+            )
+          ) {
             installed.push({ skill: skill.name, harness });
           }
         } catch (error) {

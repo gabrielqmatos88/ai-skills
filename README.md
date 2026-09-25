@@ -44,4 +44,4 @@ npm install
 npm run skills
 ```
 
-Choose one or more skills and harnesses (`.claude`, `.codex`, `.gemini`, `.clinerules`, or `.agents`). Skills are installed under each selected harness's `skills/` directory. Existing skill folders are preserved and skipped.
+Choose one or more skills and harnesses (`.claude`, `.codex`, `.gemini`, `.clinerules`, or `.agents`). Skills are installed under each selected harness's `skills/` directory. If a skill folder already exists, the installer asks before replacing it with the repository version; declining preserves the existing folder.
