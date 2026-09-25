@@ -33,7 +33,7 @@ Save a default skill selection with:
 gm-skills --config
 ```
 
-The preset is stored in `~/.local/share/gm-skills/config.json`. On later runs, preset skills are preselected and listed first.
+The preset is stored in `~/.local/share/gm-skills/config.json`. On later runs, preset skills and harnesses are preselected and listed first.
 
 The command is installed in `~/.local/bin`. If that directory is not on your `PATH`, the install script prints the required `PATH` entry.
 

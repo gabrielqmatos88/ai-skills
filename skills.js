@@ -88,29 +88,35 @@ async function fetchRepositoryTree() {
   return tree.tree;
 }
 
-async function readSkillPreset(log) {
+async function readPreset(log) {
   try {
     const config = JSON.parse(await fs.readFile(CONFIG_PATH, 'utf8'));
     if (!config || !Array.isArray(config.skills)) {
-      log.warn(`Ignoring invalid skill preset at ${CONFIG_PATH}.`);
-      return [];
+      log.warn(`Ignoring invalid preset at ${CONFIG_PATH}.`);
+      return { skills: [], harnesses: [] };
     }
-    return [...new Set(config.skills.filter((name) => typeof name === 'string'))];
+    const harnesses = Array.isArray(config.harnesses) ? config.harnesses : [];
+    return {
+      skills: [...new Set(config.skills.filter((name) => typeof name === 'string'))],
+      harnesses: [...new Set(
+        harnesses.filter((name) => HARNESS_OPTIONS.some((option) => option.value === name)),
+      )],
+    };
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      log.warn(`Could not read skill preset at ${CONFIG_PATH}: ${error.message}`);
+      log.warn(`Could not read preset at ${CONFIG_PATH}: ${error.message}`);
     }
-    return [];
+    return { skills: [], harnesses: [] };
   }
 }
 
-async function saveSkillPreset(skillNames) {
+async function savePreset(skillNames, harnessNames) {
   await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
   const temporaryConfigPath = `${CONFIG_PATH}.${process.pid}.tmp`;
   try {
     await fs.writeFile(
       temporaryConfigPath,
-      `${JSON.stringify({ skills: skillNames }, null, 2)}\n`,
+      `${JSON.stringify({ skills: skillNames, harnesses: harnessNames }, null, 2)}\n`,
       { encoding: 'utf8', mode: 0o600, flag: 'wx' },
     );
     await fs.rename(temporaryConfigPath, CONFIG_PATH);
@@ -242,13 +248,13 @@ async function main() {
 
   intro(configMode ? 'Configure AI Skills Preset' : 'AI Skills Installer');
   const skills = await fetchSkillsIndex();
-  const configuredNames = await readSkillPreset(log);
+  const preset = await readPreset(log);
   const skillNames = new Set(skills.map((skill) => skill.name));
-  const presetNames = configuredNames.filter((name) => skillNames.has(name));
-  const presetSet = new Set(presetNames);
+  const presetSkillNames = preset.skills.filter((name) => skillNames.has(name));
+  const presetSkillSet = new Set(presetSkillNames);
   const orderedSkills = [
-    ...skills.filter((skill) => presetSet.has(skill.name)),
-    ...skills.filter((skill) => !presetSet.has(skill.name)),
+    ...skills.filter((skill) => presetSkillSet.has(skill.name)),
+    ...skills.filter((skill) => !presetSkillSet.has(skill.name)),
   ];
 
   const selectedSkills = await multiselect({
@@ -258,7 +264,7 @@ async function main() {
       label: skill.name,
       hint: skill.description,
     })),
-    initialValues: presetNames,
+    initialValues: presetSkillNames,
     required: !configMode,
   });
   if (isCancel(selectedSkills)) {
@@ -266,23 +272,34 @@ async function main() {
     return;
   }
 
-  if (configMode) {
-    const selectedNames = orderedSkills
-      .map((skill) => skill.name)
-      .filter((name) => selectedSkills.includes(name));
-    await saveSkillPreset(selectedNames);
-    log.success(`Saved ${selectedNames.length} skill(s) to ${CONFIG_PATH}.`);
-    outro('Preset saved.');
-    return;
-  }
-
+  const presetHarnessSet = new Set(preset.harnesses);
+  const orderedHarnessOptions = [
+    ...HARNESS_OPTIONS.filter((option) => presetHarnessSet.has(option.value)),
+    ...HARNESS_OPTIONS.filter((option) => !presetHarnessSet.has(option.value)),
+  ];
   const selectedHarnesses = await multiselect({
-    message: 'Select harnesses to install into:',
-    options: HARNESS_OPTIONS,
-    required: true,
+    message: configMode ? 'Select harnesses for your saved preset:' : 'Select harnesses to install into:',
+    options: orderedHarnessOptions,
+    initialValues: preset.harnesses,
+    required: !configMode,
   });
   if (isCancel(selectedHarnesses)) {
     cancel('Installation cancelled.');
+    return;
+  }
+
+  if (configMode) {
+    const selectedSkillNames = orderedSkills
+      .map((skill) => skill.name)
+      .filter((name) => selectedSkills.includes(name));
+    const selectedHarnessNames = orderedHarnessOptions
+      .map((option) => option.value)
+      .filter((name) => selectedHarnesses.includes(name));
+    await savePreset(selectedSkillNames, selectedHarnessNames);
+    log.success(
+      `Saved ${selectedSkillNames.length} skill(s) and ${selectedHarnessNames.length} harness(es) to ${CONFIG_PATH}.`,
+    );
+    outro('Preset saved.');
     return;
   }
 
