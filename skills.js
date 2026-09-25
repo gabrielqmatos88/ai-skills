@@ -10,6 +10,7 @@ const RAW_BASE_URL =
   'https://raw.githubusercontent.com/gabrielqmatos88/ai-skills/refs/heads/main/';
 const TREE_URL =
   'https://api.github.com/repos/gabrielqmatos88/ai-skills/git/trees/main?recursive=1';
+const CONFIG_PATH = path.join(os.homedir(), '.local', 'share', 'gm-skills', 'config.json');
 const HARNESS_OPTIONS = [
   { value: '.claude', label: 'Claude (.claude)' },
   { value: '.codex', label: 'Codex (.codex)' },
@@ -85,6 +86,37 @@ async function fetchRepositoryTree() {
     throw new Error('GitHub returned a truncated repository file listing.');
   }
   return tree.tree;
+}
+
+async function readSkillPreset(log) {
+  try {
+    const config = JSON.parse(await fs.readFile(CONFIG_PATH, 'utf8'));
+    if (!config || !Array.isArray(config.skills)) {
+      log.warn(`Ignoring invalid skill preset at ${CONFIG_PATH}.`);
+      return [];
+    }
+    return [...new Set(config.skills.filter((name) => typeof name === 'string'))];
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      log.warn(`Could not read skill preset at ${CONFIG_PATH}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+async function saveSkillPreset(skillNames) {
+  await fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+  const temporaryConfigPath = `${CONFIG_PATH}.${process.pid}.tmp`;
+  try {
+    await fs.writeFile(
+      temporaryConfigPath,
+      `${JSON.stringify({ skills: skillNames }, null, 2)}\n`,
+      { encoding: 'utf8', mode: 0o600, flag: 'wx' },
+    );
+    await fs.rename(temporaryConfigPath, CONFIG_PATH);
+  } finally {
+    await fs.rm(temporaryConfigPath, { force: true });
+  }
 }
 
 async function downloadSkill(skill, repositoryTree, tempRoot, log) {
@@ -201,21 +233,46 @@ async function installSkill(skill, downloadedPath, harness, cwd, log) {
 async function main() {
   const prompts = await import('@clack/prompts');
   const { cancel, intro, isCancel, log, multiselect, outro, spinner } = prompts;
+  const args = process.argv.slice(2);
+  const configMode = args.includes('--config');
+  const unknownArgs = args.filter((arg) => arg !== '--config');
+  if (unknownArgs.length > 0 || args.filter((arg) => arg === '--config').length > 1) {
+    throw new Error(`Unknown or repeated argument: ${unknownArgs[0] || '--config'}`);
+  }
 
-  intro('AI Skills Installer');
+  intro(configMode ? 'Configure AI Skills Preset' : 'AI Skills Installer');
   const skills = await fetchSkillsIndex();
+  const configuredNames = await readSkillPreset(log);
+  const skillNames = new Set(skills.map((skill) => skill.name));
+  const presetNames = configuredNames.filter((name) => skillNames.has(name));
+  const presetSet = new Set(presetNames);
+  const orderedSkills = [
+    ...skills.filter((skill) => presetSet.has(skill.name)),
+    ...skills.filter((skill) => !presetSet.has(skill.name)),
+  ];
 
   const selectedSkills = await multiselect({
-    message: 'Select skills to download:',
-    options: skills.map((skill) => ({
+    message: configMode ? 'Select skills for your saved preset:' : 'Select skills to download:',
+    options: orderedSkills.map((skill) => ({
       value: skill.name,
       label: skill.name,
       hint: skill.description,
     })),
-    required: true,
+    initialValues: presetNames,
+    required: !configMode,
   });
   if (isCancel(selectedSkills)) {
     cancel('Installation cancelled.');
+    return;
+  }
+
+  if (configMode) {
+    const selectedNames = orderedSkills
+      .map((skill) => skill.name)
+      .filter((name) => selectedSkills.includes(name));
+    await saveSkillPreset(selectedNames);
+    log.success(`Saved ${selectedNames.length} skill(s) to ${CONFIG_PATH}.`);
+    outro('Preset saved.');
     return;
   }
 

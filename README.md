@@ -27,6 +27,14 @@ Then run it from the project directory where you want skills installed:
 gm-skills
 ```
 
+Save a default skill selection with:
+
+```sh
+gm-skills --config
+```
+
+The preset is stored in `~/.local/share/gm-skills/config.json`. On later runs, preset skills are preselected and listed first.
+
 The command is installed in `~/.local/bin`. If that directory is not on your `PATH`, the install script prints the required `PATH` entry.
 
 To run the installer directly from a local checkout instead, install dependencies and start it with:
