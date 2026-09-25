@@ -41,9 +41,35 @@ find_supported_node() {
   [ -n "$NODE_ACTUAL_VERSION" ] && version_is_supported "$NODE_ACTUAL_VERSION"
 }
 
+if [ -L "$APP_DIR" ]; then
+  say_error "$APP_DIR is a symlink; refusing to install through it."
+  exit 1
+fi
+
 if ! command -v curl >/dev/null 2>&1; then
   say_error 'curl is required to download the installer files.'
   exit 1
+fi
+
+CLEANUP_OLD_INSTALL=0
+if [ -e "$LAUNCHER" ] || [ -L "$LAUNCHER" ] || \
+  [ -e "$APP_DIR/skills.js" ] || [ -e "$APP_DIR/package.json" ] || \
+  [ -e "$APP_DIR/node_modules" ] || [ -L "$APP_DIR/node_modules" ]; then
+  printf 'This keeps your saved preset, bundled Node.js, and skills installed in project directories.\n'
+  printf 'An existing gm-skills installation was found. Remove its program files and launcher before continuing? [y/N] '
+  if [ ! -r /dev/tty ]; then
+    say_error 'No terminal is available to confirm cleanup; existing files were left unchanged.'
+    exit 1
+  fi
+  IFS= read -r cleanup_answer </dev/tty || cleanup_answer=''
+  case "$cleanup_answer" in
+    y|Y|yes|YES|Yes) ;;
+    *)
+      printf 'Cleanup declined; installation cancelled without changing existing files.\n'
+      exit 0
+      ;;
+  esac
+  CLEANUP_OLD_INSTALL=1
 fi
 
 if [ -x "$NODE_HOME/bin/node" ]; then
@@ -121,6 +147,12 @@ mkdir -p "$APP_DIR" "$BIN_DIR"
 printf 'Downloading gm-skills...\n'
 curl -fsSL "$REPOSITORY/skills.js" -o "$WORK_DIR/skills.js"
 curl -fsSL "$REPOSITORY/package.json" -o "$WORK_DIR/package.json"
+if [ "$CLEANUP_OLD_INSTALL" -eq 1 ]; then
+  rm -f "$APP_DIR/skills.js" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
+  rm -rf "$APP_DIR/node_modules"
+  rm -f "$LAUNCHER"
+  printf 'Removed the previous gm-skills program files.\n'
+fi
 mv "$WORK_DIR/skills.js" "$APP_DIR/skills.js"
 mv "$WORK_DIR/package.json" "$APP_DIR/package.json"
 
