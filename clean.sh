@@ -1,0 +1,1 @@
+rm -rf .claude .clinerules .codex .gemini
