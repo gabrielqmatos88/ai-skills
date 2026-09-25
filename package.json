@@ -1,0 +1,15 @@
+{
+  "name": "ai-skills-installer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Interactive installer for AI agent skills",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "skills": "node skills.js"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1"
+  }
+}

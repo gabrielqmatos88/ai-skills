@@ -12,3 +12,14 @@ Skills live under `.agents/skills/`, each in its own directory with a `SKILL.md`
 ## Related
 
 Machine-readable index: [`skills.json`](skills.json)
+
+## Install skills
+
+Install the dependencies and start the interactive installer:
+
+```sh
+npm install
+npm run skills
+```
+
+Choose one or more skills and harnesses (`.claude`, `.codex`, `.gemini`, `.clinerules`, or `.agents`). Skills are installed under each selected harness's `skills/` directory. Existing skill folders are preserved and skipped.
