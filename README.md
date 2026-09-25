@@ -15,7 +15,21 @@ Machine-readable index: [`skills.json`](skills.json)
 
 ## Install skills
 
-Install the dependencies and start the interactive installer:
+Install the `gm-skills` command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/gabrielqmatos88/ai-skills/refs/heads/main/install.sh | sh
+```
+
+Then run it from the project directory where you want skills installed:
+
+```sh
+gm-skills
+```
+
+The command is installed in `~/.local/bin`. If that directory is not on your `PATH`, the install script prints the required `PATH` entry.
+
+To run the installer directly from a local checkout instead, install dependencies and start it with:
 
 ```sh
 npm install
