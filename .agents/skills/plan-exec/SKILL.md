@@ -1,5 +1,5 @@
 ---
-name: plan-execution
+name: plan-exec
 description: 'Execute implementation plans by parsing plan directories and managing phased task execution with automatic progress tracking and todo list management.'
 ---
 

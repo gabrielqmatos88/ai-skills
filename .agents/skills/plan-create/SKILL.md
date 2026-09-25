@@ -1,5 +1,5 @@
 ---
-name: create-implementation-plan-v2
+name: plan-create
 description: 'Create a new implementation plan using directory structure with edge case discovery and user clarification workflows for comprehensive requirements gathering.'
 ---
 
@@ -40,7 +40,7 @@ A good implementation plan anticipates problems before they occur. This workflow
 │                     REVIEW & EXECUTE PHASE                       │
 │  7. Present Plan for User Review                                │
 │  8. Await User Confirmation                                     │
-│  9. Proceed to Plan Execution (plan-execution skill)            │
+│  9. Proceed to Plan Execution (plan-exec skill)                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -447,7 +447,7 @@ Would you like to:
 ```
 
 Use the `ask_followup_question` tool with these options:
-- **Proceed with execution**: Start the plan-execution skill
+- **Proceed with execution**: Start the plan-exec skill
 - **Request modifications**: Ask what changes are needed
 - **Cancel**: End the workflow
 
@@ -455,9 +455,9 @@ Use the `ask_followup_question` tool with these options:
 
 When the user confirms to proceed:
 
-1. **Invoke the plan-execution skill** with the created plan directory
+1. **Invoke the plan-exec skill** with the created plan directory
 2. **Pass the plan directory path** as input to the execution skill
-3. **The plan-execution skill will**:
+3. **The plan-exec skill will**:
    - Load and parse the plan directory
    - Read findings.md for context
    - Check feedbacks.md for customer input
@@ -475,7 +475,7 @@ To initiate plan execution, use:
 
 Where `[plan-directory-name]` is the directory name created in Phase 5 (e.g., `feature-auth-module-1`).
 
-The plan-execution skill will handle all task execution, progress tracking, and status updates automatically.
+The plan-exec skill will handle all task execution, progress tracking, and status updates automatically.
 
 ---
 
