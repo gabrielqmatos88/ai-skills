@@ -1,0 +1,24 @@
+{
+  "skills": [
+    {
+      "name": "create-implementation-plan",
+      "path": ".agents/skills/create-implementation-plan/SKILL.md",
+      "description": "Create a new implementation plan using directory structure for new features, refactoring existing code or upgrading packages, design, architecture or infrastructure."
+    },
+    {
+      "name": "karpathy-guidelines",
+      "path": ".agents/skills/karpathy-guidelines/SKILL.md",
+      "description": "Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria."
+    },
+    {
+      "name": "plan-create",
+      "path": ".agents/skills/plan-create/SKILL.md",
+      "description": "Create a new implementation plan using directory structure with edge case discovery and user clarification workflows for comprehensive requirements gathering."
+    },
+    {
+      "name": "plan-exec",
+      "path": ".agents/skills/plan-exec/SKILL.md",
+      "description": "Execute implementation plans by parsing plan directories and managing phased task execution with automatic progress tracking and todo list management."
+    }
+  ]
+}
