@@ -19,6 +19,76 @@
       "name": "plan-exec",
       "path": ".agents/skills/plan-exec/SKILL.md",
       "description": "Execute implementation plans by parsing plan directories and managing phased task execution with automatic progress tracking and todo list management."
+    },
+    {
+      "name": "brainstorming",
+      "path": ".agents/skills/brainstorming/SKILL.md",
+      "description": "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation)."
+    },
+    {
+      "name": "caveman",
+      "path": ".agents/skills/caveman/SKILL.md",
+      "description": "Terse caveman voice: answer first, fluff gone, every technical fact kept. Use for /caveman, \"caveman mode\", \"talk like caveman\", \"be brief\", \"less tokens\". Stays on until \"stop caveman\" or \"normal mode\"."
+    },
+    {
+      "name": "caveman-commit",
+      "path": ".agents/skills/caveman-commit/SKILL.md",
+      "description": "Write a Conventional Commits message compressed to intent only. Use for \"write a commit\", \"commit message\", /commit or /caveman-commit."
+    },
+    {
+      "name": "code-review",
+      "path": ".agents/skills/code-review/SKILL.md",
+      "description": "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+    },
+    {
+      "name": "git-commit",
+      "path": ".agents/skills/git-commit/SKILL.md",
+      "description": "Use this skill when the user wants to make a Git commit or split changes into more than one commit. Also use it when the user types \"/commit\" or asks for a conventional commit. The skill examines the diff, stages the related files, writes a Conventional Commits message, and runs git commit. Do not use it when the user wants only a commit message and no commit. Do not use it to push, open a pull request, rebase, or change the commit history."
+    },
+    {
+      "name": "grill-me",
+      "path": ".agents/skills/grill-me/SKILL.md",
+      "description": "A relentless interview to sharpen a plan or design."
+    },
+    {
+      "name": "grill-with-docs",
+      "path": ".agents/skills/grill-with-docs/SKILL.md",
+      "description": "A relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go."
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "path": ".agents/skills/improve-codebase-architecture/SKILL.md",
+      "description": "Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick."
+    },
+    {
+      "name": "loop-me",
+      "path": ".agents/skills/loop-me/SKILL.md",
+      "description": "Grill me about specs for the workflows I want to build, within this workspace."
+    },
+    {
+      "name": "planning-and-task-breakdown",
+      "path": ".agents/skills/planning-and-task-breakdown/SKILL.md",
+      "description": "Breaks work into ordered tasks. Use when you have a spec or clear requirements and need to break work into implementable tasks. Use when a task feels too large to start, when you need to estimate scope, or when parallel work is possible."
+    },
+    {
+      "name": "ponytail",
+      "path": ".agents/skills/ponytail/SKILL.md",
+      "description": "Lazy senior dev mode: the smallest change that fully solves the task, and a reply a busy human understands in one read. Use on any coding task (writing, fixing, refactoring, reviewing, choosing dependencies) and when the user says \"ponytail\", \"be lazy\", \"simplest solution\", \"yagni\", or complains about over-engineering or bloat. Levels: lite, full (default), ultra."
+    },
+    {
+      "name": "research",
+      "path": ".agents/skills/research/SKILL.md",
+      "description": "Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent."
+    },
+    {
+      "name": "skill-creator",
+      "path": ".agents/skills/skill-creator/SKILL.md",
+      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy."
+    },
+    {
+      "name": "to-spec",
+      "path": ".agents/skills/to-spec/SKILL.md",
+      "description": "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed."
     }
   ]
 }
