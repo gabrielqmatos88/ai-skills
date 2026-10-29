@@ -35,7 +35,31 @@ gm-skills --config
 
 The preset is stored in `~/.local/share/gm-skills/config.json`. On later runs, preset skills and harnesses are preselected and listed first.
 
+Update catalog skills already installed in the current project:
+
+```sh
+gm-skills --update
+```
+
+The command lists matching skills found under supported harness directories in the current project. Select the installations to update; each replacement requires confirmation and replaces the skill folder with the repository version.
+
+Upgrade the `gm-skills` utility itself:
+
+```sh
+gm-skills --upgrade
+```
+
+The upgrade fetches the latest utility files from the repository and refreshes its dependencies. It preserves the saved preset, launcher, and bundled Node.js runtime.
+
 The command is installed in `~/.local/bin`. If that directory is not on your `PATH`, the install script prints the required `PATH` entry.
+
+To install the current checkout as `gm-skills`—including uncommitted changes—run this from the repository root:
+
+```sh
+./local_install.sh
+```
+
+This uses the local `skills.js` and `package.json` while keeping the standard installer’s launcher and runtime setup. `npm install` may fetch dependencies from the npm registry; if Node.js and npm are unavailable, it may also download the bundled Node.js runtime from nodejs.org.
 
 To run the installer directly from a local checkout instead, install dependencies and start it with:
 

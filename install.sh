@@ -3,6 +3,7 @@
 set -eu
 
 REPOSITORY='https://raw.githubusercontent.com/gabrielqmatos88/ai-skills/refs/heads/main'
+LOCAL_SOURCE_DIR=${GM_SKILLS_LOCAL_SOURCE_DIR:-}
 NODE_VERSION='v24.21.0'
 NODE_ARCHIVE="node-${NODE_VERSION}-linux-x64.tar.xz"
 NODE_HOME="$HOME/.local/share/gm-skills/node-${NODE_VERSION}-linux-x64"
@@ -46,9 +47,22 @@ if [ -L "$APP_DIR" ]; then
   exit 1
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
+if [ -z "$LOCAL_SOURCE_DIR" ] && ! command -v curl >/dev/null 2>&1; then
   say_error 'curl is required to download the installer files.'
   exit 1
+fi
+
+if [ -n "$LOCAL_SOURCE_DIR" ]; then
+  if [ ! -d "$LOCAL_SOURCE_DIR" ]; then
+    say_error "Local source directory does not exist: $LOCAL_SOURCE_DIR"
+    exit 1
+  fi
+  for filename in skills.js package.json; do
+    if [ ! -f "$LOCAL_SOURCE_DIR/$filename" ]; then
+      say_error "Local source is missing $filename: $LOCAL_SOURCE_DIR"
+      exit 1
+    fi
+  done
 fi
 
 CLEANUP_OLD_INSTALL=0
@@ -78,6 +92,10 @@ if [ -x "$NODE_HOME/bin/node" ]; then
 fi
 
 if ! find_supported_node || ! command -v npm >/dev/null 2>&1; then
+  if ! command -v curl >/dev/null 2>&1; then
+    say_error 'curl is required to download Node.js.'
+    exit 1
+  fi
   printf 'Node.js >=20.12.0 and npm are required. Install Node.js %s locally? [y/N] ' "$NODE_VERSION"
   if [ ! -r /dev/tty ]; then
     printf '\n'
@@ -144,9 +162,15 @@ fi
 
 WORK_DIR=${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/gm-skills-install.XXXXXX")}
 mkdir -p "$APP_DIR" "$BIN_DIR"
-printf 'Downloading gm-skills...\n'
-curl -fsSL "$REPOSITORY/skills.js" -o "$WORK_DIR/skills.js"
-curl -fsSL "$REPOSITORY/package.json" -o "$WORK_DIR/package.json"
+if [ -n "$LOCAL_SOURCE_DIR" ]; then
+  printf 'Installing gm-skills from local source: %s\n' "$LOCAL_SOURCE_DIR"
+  cp "$LOCAL_SOURCE_DIR/skills.js" "$WORK_DIR/skills.js"
+  cp "$LOCAL_SOURCE_DIR/package.json" "$WORK_DIR/package.json"
+else
+  printf 'Downloading gm-skills...\n'
+  curl -fsSL "$REPOSITORY/skills.js" -o "$WORK_DIR/skills.js"
+  curl -fsSL "$REPOSITORY/package.json" -o "$WORK_DIR/package.json"
+fi
 if [ "$CLEANUP_OLD_INSTALL" -eq 1 ]; then
   rm -f "$APP_DIR/skills.js" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
   rm -rf "$APP_DIR/node_modules"

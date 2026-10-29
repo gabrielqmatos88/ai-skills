@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 
 const INDEX_URL =
   'https://raw.githubusercontent.com/gabrielqmatos88/ai-skills/refs/heads/main/skills.json';
@@ -10,7 +11,8 @@ const RAW_BASE_URL =
   'https://raw.githubusercontent.com/gabrielqmatos88/ai-skills/refs/heads/main/';
 const TREE_URL =
   'https://api.github.com/repos/gabrielqmatos88/ai-skills/git/trees/main?recursive=1';
-const CONFIG_PATH = path.join(os.homedir(), '.local', 'share', 'gm-skills', 'config.json');
+const APP_DIR = path.join(os.homedir(), '.local', 'share', 'gm-skills');
+const CONFIG_PATH = path.join(APP_DIR, 'config.json');
 const HARNESS_OPTIONS = [
   { value: '.claude', label: 'Claude (.claude)' },
   { value: '.codex', label: 'Codex (.codex)' },
@@ -256,74 +258,233 @@ async function installSkill(
   return true;
 }
 
+async function findInstalledSkills(skills, cwd) {
+  const installed = [];
+  for (const harness of HARNESS_OPTIONS) {
+    for (const skill of skills) {
+      const destination = path.join(cwd, harness.value, 'skills', skill.name);
+      try {
+        const skillStat = await fs.lstat(destination);
+        if (!skillStat.isDirectory()) continue;
+        const entryStat = await fs.lstat(path.join(destination, 'SKILL.md'));
+        if (entryStat.isFile()) installed.push({ skill, harness: harness.value, harnessLabel: harness.label });
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+  }
+  return installed;
+}
+
+function installDependencies(prefix) {
+  return new Promise((resolve, reject) => {
+    const npm = spawn(
+      'npm',
+      ['install', '--prefix', prefix, '--omit=dev', '--no-audit', '--no-fund'],
+      { stdio: 'inherit' },
+    );
+    npm.once('error', reject);
+    npm.once('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`npm install failed with exit code ${code}.`));
+    });
+  });
+}
+
+async function upgradeUtility(log) {
+  const appStat = await fs.lstat(APP_DIR).catch((error) => {
+    if (error.code === 'ENOENT') {
+      throw new Error(`No installed gm-skills utility found at ${APP_DIR}.`);
+    }
+    throw error;
+  });
+  if (!appStat.isDirectory()) throw new Error(`Utility path is not a directory: ${APP_DIR}`);
+  for (const filename of ['skills.js', 'package.json']) {
+    const fileStat = await fs.lstat(path.join(APP_DIR, filename)).catch((error) => {
+      if (error.code === 'ENOENT') throw new Error(`Installed utility is missing ${filename}.`);
+      throw error;
+    });
+    if (!fileStat.isFile()) throw new Error(`Installed utility file is not regular: ${filename}`);
+  }
+
+  const stagingDirectory = await fs.mkdtemp(path.join(APP_DIR, '.gm-skills-upgrade-'));
+  const backupDirectory = path.join(stagingDirectory, 'previous');
+  const filenames = ['skills.js', 'package.json', 'package-lock.json', 'node_modules'];
+  const backedUp = [];
+  const installed = [];
+
+  try {
+    const [scriptResponse, packageResponse] = await Promise.all([
+      fetchResponse(rawUrlFor('skills.js')),
+      fetchResponse(rawUrlFor('package.json')),
+    ]);
+    if (!scriptResponse.ok) {
+      throw new Error(`Could not fetch updated skills.js (HTTP ${scriptResponse.status}).`);
+    }
+    if (!packageResponse.ok) {
+      throw new Error(`Could not fetch updated package.json (HTTP ${packageResponse.status}).`);
+    }
+
+    const script = await scriptResponse.text();
+    const packageJson = await packageResponse.text();
+    JSON.parse(packageJson);
+    await fs.writeFile(path.join(stagingDirectory, 'skills.js'), script, 'utf8');
+    await fs.writeFile(path.join(stagingDirectory, 'package.json'), packageJson, 'utf8');
+    await installDependencies(stagingDirectory);
+
+    await fs.mkdir(backupDirectory);
+    for (const filename of filenames) {
+      try {
+        await fs.rename(path.join(APP_DIR, filename), path.join(backupDirectory, filename));
+        backedUp.push(filename);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+    for (const filename of filenames) {
+      await fs.rename(path.join(stagingDirectory, filename), path.join(APP_DIR, filename));
+      installed.push(filename);
+    }
+  } catch (error) {
+    for (const filename of installed.reverse()) {
+      await fs.rm(path.join(APP_DIR, filename), { recursive: true, force: true });
+    }
+    for (const filename of backedUp.reverse()) {
+      await fs.rename(path.join(backupDirectory, filename), path.join(APP_DIR, filename));
+    }
+    throw error;
+  } finally {
+    await fs.rm(stagingDirectory, { recursive: true, force: true });
+  }
+
+  log.success('gm-skills was upgraded successfully.');
+}
+
 async function main() {
   const prompts = await import('@clack/prompts');
   const { cancel, confirm, intro, isCancel, log, multiselect, outro, spinner } = prompts;
   const args = process.argv.slice(2);
-  const configMode = args.includes('--config');
-  const unknownArgs = args.filter((arg) => arg !== '--config');
-  if (unknownArgs.length > 0 || args.filter((arg) => arg === '--config').length > 1) {
-    throw new Error(`Unknown or repeated argument: ${unknownArgs[0] || '--config'}`);
+  const modes = ['--config', '--update', '--upgrade'];
+  const unknownArg = args.find((arg) => !modes.includes(arg));
+  const repeatedArg = args.find((arg, index) => args.indexOf(arg) !== index);
+  const selectedModes = args.filter((arg) => modes.includes(arg));
+  if (unknownArg || repeatedArg || selectedModes.length > 1) {
+    throw new Error(`Unknown, repeated, or conflicting argument: ${unknownArg || repeatedArg || selectedModes[1]}`);
   }
 
-  intro(configMode ? 'Configure AI Skills Preset' : 'AI Skills Installer');
+  const configMode = selectedModes.includes('--config');
+  const updateMode = selectedModes.includes('--update');
+  const upgradeMode = selectedModes.includes('--upgrade');
+  intro(
+    upgradeMode
+      ? 'Upgrade gm-skills'
+      : updateMode
+        ? 'Update Installed Skills'
+        : configMode
+          ? 'Configure AI Skills Preset'
+          : 'AI Skills Installer',
+  );
+
+  if (upgradeMode) {
+    await upgradeUtility(log);
+    outro('Upgrade complete.');
+    return;
+  }
+
   const skills = await fetchSkillsIndex();
-  const preset = await readPreset(log);
-  const skillNames = new Set(skills.map((skill) => skill.name));
-  const presetSkillNames = preset.skills.filter((name) => skillNames.has(name));
-  const presetSkillSet = new Set(presetSkillNames);
-  const orderedSkills = [
-    ...skills.filter((skill) => presetSkillSet.has(skill.name)),
-    ...skills.filter((skill) => !presetSkillSet.has(skill.name)),
-  ];
+  let chosenSkills;
+  let deployments;
 
-  const selectedSkills = await multiselect({
-    message: configMode ? 'Select skills for your saved preset:' : 'Select skills to download:',
-    options: orderedSkills.map((skill) => ({
-      value: skill.name,
-      label: skill.name,
-      hint: skill.description,
-    })),
-    initialValues: presetSkillNames,
-    required: !configMode,
-  });
-  if (isCancel(selectedSkills)) {
-    cancel('Installation cancelled.');
-    return;
-  }
+  if (updateMode) {
+    const installedSkills = await findInstalledSkills(skills, process.cwd());
+    if (installedSkills.length === 0) {
+      log.warn('No catalog skills are installed in this project.');
+      outro('Nothing to update.');
+      return;
+    }
 
-  const presetHarnessSet = new Set(preset.harnesses);
-  const orderedHarnessOptions = [
-    ...HARNESS_OPTIONS.filter((option) => presetHarnessSet.has(option.value)),
-    ...HARNESS_OPTIONS.filter((option) => !presetHarnessSet.has(option.value)),
-  ];
-  const selectedHarnesses = await multiselect({
-    message: configMode ? 'Select harnesses for your saved preset:' : 'Select harnesses to install into:',
-    options: orderedHarnessOptions,
-    initialValues: preset.harnesses,
-    required: !configMode,
-  });
-  if (isCancel(selectedHarnesses)) {
-    cancel('Installation cancelled.');
-    return;
-  }
+    const selectedInstallations = await multiselect({
+      message: 'Select installed skills to update:',
+      options: installedSkills.map((item, index) => ({
+        value: String(index),
+        label: `${item.skill.name} (${item.harnessLabel}/skills)`,
+        hint: item.skill.description,
+      })),
+      required: false,
+    });
+    if (isCancel(selectedInstallations)) {
+      cancel('Update cancelled.');
+      return;
+    }
+    deployments = selectedInstallations.map((index) => installedSkills[Number(index)]);
+    if (deployments.length === 0) {
+      log.warn('No skills selected for update.');
+      outro('Nothing to update.');
+      return;
+    }
+    chosenSkills = [...new Map(deployments.map(({ skill }) => [skill.name, skill])).values()];
+  } else {
+    const preset = await readPreset(log);
+    const skillNames = new Set(skills.map((skill) => skill.name));
+    const presetSkillNames = preset.skills.filter((name) => skillNames.has(name));
+    const presetSkillSet = new Set(presetSkillNames);
+    const orderedSkills = [
+      ...skills.filter((skill) => presetSkillSet.has(skill.name)),
+      ...skills.filter((skill) => !presetSkillSet.has(skill.name)),
+    ];
 
-  if (configMode) {
-    const selectedSkillNames = orderedSkills
-      .map((skill) => skill.name)
-      .filter((name) => selectedSkills.includes(name));
-    const selectedHarnessNames = orderedHarnessOptions
-      .map((option) => option.value)
-      .filter((name) => selectedHarnesses.includes(name));
-    await savePreset(selectedSkillNames, selectedHarnessNames);
-    log.success(
-      `Saved ${selectedSkillNames.length} skill(s) and ${selectedHarnessNames.length} harness(es) to ${CONFIG_PATH}.`,
+    const selectedSkills = await multiselect({
+      message: configMode ? 'Select skills for your saved preset:' : 'Select skills to download:',
+      options: orderedSkills.map((skill) => ({
+        value: skill.name,
+        label: skill.name,
+        hint: skill.description,
+      })),
+      initialValues: presetSkillNames,
+      required: !configMode,
+    });
+    if (isCancel(selectedSkills)) {
+      cancel('Installation cancelled.');
+      return;
+    }
+
+    const presetHarnessSet = new Set(preset.harnesses);
+    const orderedHarnessOptions = [
+      ...HARNESS_OPTIONS.filter((option) => presetHarnessSet.has(option.value)),
+      ...HARNESS_OPTIONS.filter((option) => !presetHarnessSet.has(option.value)),
+    ];
+    const selectedHarnesses = await multiselect({
+      message: configMode ? 'Select harnesses for your saved preset:' : 'Select harnesses to install into:',
+      options: orderedHarnessOptions,
+      initialValues: preset.harnesses,
+      required: !configMode,
+    });
+    if (isCancel(selectedHarnesses)) {
+      cancel('Installation cancelled.');
+      return;
+    }
+
+    if (configMode) {
+      const selectedSkillNames = orderedSkills
+        .map((skill) => skill.name)
+        .filter((name) => selectedSkills.includes(name));
+      const selectedHarnessNames = orderedHarnessOptions
+        .map((option) => option.value)
+        .filter((name) => selectedHarnesses.includes(name));
+      await savePreset(selectedSkillNames, selectedHarnessNames);
+      log.success(
+        `Saved ${selectedSkillNames.length} skill(s) and ${selectedHarnessNames.length} harness(es) to ${CONFIG_PATH}.`,
+      );
+      outro('Preset saved.');
+      return;
+    }
+
+    chosenSkills = skills.filter((skill) => selectedSkills.includes(skill.name));
+    deployments = selectedHarnesses.flatMap((harness) =>
+      chosenSkills.map((skill) => ({ skill, harness })),
     );
-    outro('Preset saved.');
-    return;
   }
 
-  const chosenSkills = skills.filter((skill) => selectedSkills.includes(skill.name));
   const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'ai-skills-'));
   const installed = [];
 
@@ -348,27 +509,25 @@ async function main() {
     }
     downloadSpinner.stop('Download step finished');
 
-    for (const harness of selectedHarnesses) {
-      for (const skill of chosenSkills) {
-        const downloadedPath = downloadedSkills.get(skill.name);
-        if (!downloadedPath) continue;
-        try {
-          if (
-            await installSkill(
-              skill,
-              downloadedPath,
-              harness,
-              process.cwd(),
-              log,
-              confirm,
-              isCancel,
-            )
-          ) {
-            installed.push({ skill: skill.name, harness });
-          }
-        } catch (error) {
-          log.error(`Failed to install ${skill.name} into ${harness}: ${error.message}`);
+    for (const { skill, harness } of deployments) {
+      const downloadedPath = downloadedSkills.get(skill.name);
+      if (!downloadedPath) continue;
+      try {
+        if (
+          await installSkill(
+            skill,
+            downloadedPath,
+            harness,
+            process.cwd(),
+            log,
+            confirm,
+            isCancel,
+          )
+        ) {
+          installed.push({ skill: skill.name, harness });
         }
+      } catch (error) {
+        log.error(`Failed to ${updateMode ? 'update' : 'install'} ${skill.name} in ${harness}: ${error.message}`);
       }
     }
   } finally {
@@ -376,14 +535,14 @@ async function main() {
   }
 
   if (installed.length === 0) {
-    log.warn('No skills were installed.');
+    log.warn(updateMode ? 'No skills were updated.' : 'No skills were installed.');
   } else {
-    log.success('Installed skills:');
+    log.success(updateMode ? 'Updated skills:' : 'Installed skills:');
     for (const item of installed) {
       log.message(`  ${item.skill} → ${item.harness}/skills/${item.skill}`);
     }
   }
-  outro('Installation complete.');
+  outro(updateMode ? 'Update complete.' : 'Installation complete.');
 }
 
 main().catch(async (error) => {
